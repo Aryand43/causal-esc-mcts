@@ -1,0 +1,6 @@
+learning_rate: 1e-4
+batch_size: 4
+max_steps: 100000
+flow_loss_weight: 1.0
+ranking_loss_weight: 1.0
+gamma_margin: 1.0
