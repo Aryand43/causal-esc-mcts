@@ -1,6 +1,11 @@
-"""MCTS package (PUCT + learned transitions)."""
+"""MCTS planning module: tree nodes, networks, and search."""
 
-from mcts.mcts import MCTS
 from mcts.node import TreeNode
+from mcts.mcts import MCTS, PolicyNetwork, ValueNetwork
 
-__all__ = ["MCTS", "TreeNode"]
+__all__ = [
+    "TreeNode",
+    "MCTS",
+    "PolicyNetwork",
+    "ValueNetwork",
+]
