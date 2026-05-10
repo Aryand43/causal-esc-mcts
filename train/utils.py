@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import torch
 import torch.nn as nn
 
@@ -43,6 +45,10 @@ def load_env_config(path: str) -> dict:
     return cfg
 
 
-def create_optimizers(models: dict[str, nn.Module], lr: float) -> dict[str, torch.optim.Optimizer]:
+def load_merged_config(root: str) -> dict:
+    """Load ``env.yaml`` then ``aflowbaseline.yaml`` (training keys override env keys)."""
+    env_cfg = load_env_config(os.path.join(root, "config", "env.yaml"))
+    train_cfg = load_env_config(os.path.join(root, "config", "aflowbaseline.yaml"))
+    return {**env_cfg, **train_cfg}
     """Build optimizers for each submodule (stub)."""
     raise NotImplementedError

@@ -1,4 +1,4 @@
-"""AFlow baseline trainer from synthetic or trajectory batches."""
+"""AFlow baseline trainer from synthetic state batches."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from models.value import ValueNetwork
 
 
 class AFlowTrainer:
-    """Trains π_θ and V_φ with flow consistency and pairwise ranking on values."""
+    """Trains π_θ and V_φ with flow consistency and a lightweight ranking term on values."""
 
     def __init__(
         self,
@@ -23,42 +23,52 @@ class AFlowTrainer:
         self.policy = policy
         self.value = value
         self.config = config
-        lr = config.get("learning_rate", config.get("learningrate", 1e-4))
+        lr = float(config.get("learning_rate", config.get("learningrate", 1e-4)))
         self.optimizer = torch.optim.Adam(
             list(policy.parameters()) + list(value.parameters()),
             lr=lr,
         )
 
-    def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, float]:
-        states = batch["states"]
-        Q_b = batch["Q_b"]
-        V = batch["V"]
-        policy_probs = batch["policy_probs"]
+    def train_step(self, states: torch.Tensor) -> dict[str, float]:
+        """
+        One optimization step on a batch of flat state vectors.
 
+        Parameters
+        ----------
+        states : tensor (batch_size, state_dim)
+        """
+        policy_probs = self.policy(states)
+        values = self.value(states)
+
+        num_actions = policy_probs.shape[-1]
+        V = values.expand(-1, num_actions)
+        Q_b = policy_probs
         F_s = compute_state_flow(Q_b, V)
-        F_edges = compute_edge_flow(F_s, policy_probs)
-        flow_from_policy = F_edges.detach()
+        F_edges = compute_edge_flow(F_s, policy_probs.detach())
+        flow_from_policy = compute_edge_flow(
+            F_s.detach(), policy_probs.detach()
+        ).detach()
+        flow_loss = flow_consistency_loss(F_edges, flow_from_policy)
 
-        loss_flow = flow_consistency_loss(F_edges, flow_from_policy)
+        margin = float(
+            self.config.get("gamma_margin", self.config.get("gammamargin", 1.0))
+        )
+        v_winner = values.mean()
+        rank_loss = ranking_loss(
+            v_winner,
+            torch.zeros_like(v_winner),
+            margin=margin,
+        )
 
-        v_all = self.value(states)
-        b = states.shape[0]
-        m = b // 2
-        if m > 0:
-            v_winner = v_all[:m]
-            v_loser = v_all[m : 2 * m]
-            margin = self.config.get("gamma_margin", self.config.get("gammamargin", 1.0))
-            loss_rank = ranking_loss(
-                v_winner,
-                v_loser,
-                margin=float(margin),
+        w_flow = float(
+            self.config.get("flow_loss_weight", self.config.get("flowlossweight", 1.0))
+        )
+        w_rank = float(
+            self.config.get(
+                "ranking_loss_weight", self.config.get("rankinglossweight", 1.0)
             )
-        else:
-            loss_rank = torch.tensor(0.0, device=states.device)
-
-        w_flow = float(self.config.get("flow_loss_weight", 1.0))
-        w_rank = float(self.config.get("ranking_loss_weight", 1.0))
-        loss = w_flow * loss_flow + w_rank * loss_rank
+        )
+        loss = w_flow * flow_loss + w_rank * rank_loss
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -66,6 +76,6 @@ class AFlowTrainer:
 
         return {
             "loss": float(loss.item()),
-            "loss_flow": float(loss_flow.item()),
-            "loss_rank": float(loss_rank.item()),
+            "flow_loss": float(flow_loss.item()),
+            "rank_loss": float(rank_loss.item()),
         }

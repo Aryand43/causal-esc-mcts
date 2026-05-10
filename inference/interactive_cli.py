@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import List
 
 from esc.action import ESCAction
@@ -12,11 +13,16 @@ from models.backbone_qwen import QwenBackbone
 from models.policy import PolicyNetwork
 from models.transition import LinearTransitionModel
 from models.value import ValueNetwork
+from train.utils import load_merged_config
 from utils.seed import set_global_seed
 
 
 def run_interactive_session() -> None:
-    set_global_seed(42)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    config = load_merged_config(root)
+
+    seed = int(config.get("seed", 42))
+    set_global_seed(seed)
 
     dialogue: List[str] = []
 
@@ -29,7 +35,7 @@ def run_interactive_session() -> None:
     )
     env = ESCEnv(
         transition_model=transition_model,
-        max_horizon=20,
+        config=config,
     )
 
     num_actions = ESCAction.NUM_STRATEGIES * ESCState.N_C
@@ -39,10 +45,13 @@ def run_interactive_session() -> None:
         env=env,
         policy_network=policy,
         value_network=value,
-        num_simulations=10,
+        config=config,
     )
 
-    backbone = QwenBackbone(model_name="Qwen/Qwen-9B-Chat")
+    backbone_name = str(
+        config.get("backbone_model_name", "Qwen/Qwen-1.5-9B-Chat")
+    )
+    backbone = QwenBackbone(model_name=backbone_name)
 
     state = env.reset(initial_turns=dialogue)
 

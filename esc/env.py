@@ -15,7 +15,7 @@ Changes from v1
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 import torch
 import torch.nn.functional as F
 
@@ -41,7 +41,10 @@ class ESCEnv:
                        Swap in LinearTransitionModel once trained.
     max_horizon      : Episode length in turns (default 20)
     reward_weights   : (alpha, beta, gamma) for the three reward components
-    device           : Torch device string
+    device           : Torch device string (also used as default target device
+                       for new tensors when the state is not yet on device)
+    config           : Optional flat dict; may supply ``max_horizon`` /
+                       ``maxhorizon`` and ``device`` to override the kwargs above
     """
 
     def __init__(
@@ -50,6 +53,7 @@ class ESCEnv:
         max_horizon: int = 20,
         reward_weights: tuple[float, float, float] = (1.0, 1.0, 1.0),
         device: str = "cpu",
+        config: Optional[dict[str, Any]] = None,
     ) -> None:
         self._transition = transition_model or RandomTransitionModel(
             d_e=ESCState.D_E,
@@ -58,6 +62,11 @@ class ESCEnv:
         self._max_horizon = max_horizon
         self._alpha, self._beta, self._gamma = reward_weights
         self._device = device
+        if config is not None:
+            self._max_horizon = int(
+                config.get("max_horizon", config.get("maxhorizon", self._max_horizon))
+            )
+            self._device = str(config.get("device", self._device))
 
     # ------------------------------------------------------------------
     # Properties
@@ -161,7 +170,8 @@ class ESCEnv:
 
         # 2a. Slide history window: drop row 0, append zeros for new turn
         #     (placeholder; backbone encoder would provide the real embedding)
-        new_turn_emb = torch.zeros(1, self.d_h, device=self._device)
+        dev = state.history_embeddings.device
+        new_turn_emb = torch.zeros(1, self.d_h, device=dev)
         next_state.history_embeddings = torch.cat(
             [state.history_embeddings[1:], new_turn_emb], dim=0
         )  # still [K, D_H]

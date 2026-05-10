@@ -19,7 +19,7 @@ Changes from v1
 from __future__ import annotations
 
 import math
-from typing import Optional
+from typing import Any, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -166,6 +166,8 @@ class MCTS:
     hidden_dim       : Hidden layer width for default networks (default 256)
     c_puct           : PUCT exploration constant (default 1.0)
     num_simulations  : Search budget — simulations per search() call (default 50)
+    config           : Optional flat dict with ``num_simulations``, ``c_puct`` /
+                       ``cpuct`` to override the constructor arguments above
     """
 
     def __init__(
@@ -178,11 +180,17 @@ class MCTS:
         hidden_dim: int = 256,
         c_puct: float = 1.0,
         num_simulations: int = 50,
+        config: Optional[dict[str, Any]] = None,
     ) -> None:
         self._env = env or ESCEnv()
         self._state_dim = state_dim or ESCState.get_state_dim()
-        self._c_puct = c_puct
-        self._num_simulations = num_simulations
+        self._c_puct = float(c_puct)
+        self._num_simulations = int(num_simulations)
+        if config is not None:
+            if "c_puct" in config or "cpuct" in config:
+                self._c_puct = float(config.get("c_puct", config.get("cpuct", self._c_puct)))
+            if "num_simulations" in config:
+                self._num_simulations = int(config["num_simulations"])
 
         # Default action-space size: 4 strategies/phase × N_C causes
         # (worst-case upper bound; actual list is phase-filtered at runtime)
@@ -210,6 +218,11 @@ class MCTS:
 
         self.policy_network.eval()
         self.value_network.eval()
+
+    @property
+    def env(self) -> ESCEnv:
+        """ESC MDP environment used for expansion and rollouts."""
+        return self._env
 
     # ------------------------------------------------------------------
     # Public API
