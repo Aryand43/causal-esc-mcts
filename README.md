@@ -7,24 +7,29 @@ Scaffold for latency-aware causal MCTS over an Emotional Support Conversation (E
 The dialogue is framed as an MDP with state
 
 \[
-s_t \;=\; \operatorname{concat}\!\left(\bar{H}_t,\; \bar{C}_t,\; e_t,\; p_t\right),
+\begin{aligned}
+s_t &= \operatorname{concat}\!\left(\bar{H}_t,\bar{C}_t,e_t,p_t\right),\\
+\bar{H}_t &:= \text{pooled recent turn encodings},\\
+\bar{C}_t &:= \text{pooled causal-graph embeddings},\\
+e_t &:= \text{current emotion vector},\\
+p_t &\in \Delta^2,
+\end{aligned}
 \]
-
-where:
-\[
-\bar{H}_t = \text{pooled recent turn encodings}, \quad
-\bar{C}_t = \text{pooled causal-graph embeddings}, \quad
-e_t = \text{current emotion vector}, \quad
-p_t \in \Delta^2 = \text{phase distribution (exploration / comforting / action)}.
-\]
+where \(p_t\) is the phase distribution over \(\{\text{exploration},\text{comforting},\text{action}\}\).
 
 The reward is additively decomposed as
 \[
-R_t \;=\; R_t^{\text{cause}} + R_t^{\text{emotion}} + R_t^{\text{phase}},
+R_t = R_t^{\mathrm{cause}} + R_t^{\mathrm{emotion}} + R_t^{\mathrm{phase}},
 \]
 capturing cause-resolution progress, movement toward a target emotion, and phase progression.
 
-A learned transition \(f_\theta(s_t, a_t)\) predicts next emotion, phase logits, and resolution deltas so MCTS can plan without full LLM rollouts. At inference time, **Qwen-9B** (stub in `models/backbone_qwen.py`) is intended only for encoding dialogue into this state and for generating the final assistant reply conditioned on the chosen ESC action.
+A learned transition model supports planning without full LLM rollouts:
+\[
+(\hat{e}_{t+1}, \hat{p}_{t+1}, \hat{\delta}_{t+1}) = f_\theta(s_t, a_t),
+\]
+where \(\hat{e}_{t+1}\), \(\hat{p}_{t+1}\), and \(\hat{\delta}_{t+1}\) are predicted next-step emotion, phase logits, and resolution deltas.
+
+At inference time, **Qwen-9B** (stub in `models/backbone_qwen.py`) is used only to encode dialogue into state features and generate the final assistant reply conditioned on the selected ESC action.
 
 ## Running the code
 
