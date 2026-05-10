@@ -4,30 +4,35 @@ Scaffold for latency-aware causal MCTS over an Emotional Support Conversation (E
 
 ## Method (ESC + AFlow + Causal MCTS)
 
-The dialogue is framed as an MDP with state
+The dialogue is framed as an MDP
+\[
+\mathcal{M}=(\mathcal{S},\mathcal{A},P,R,\gamma),
+\]
+with state
 
 \[
 \begin{aligned}
 s_t &= \operatorname{concat}\!\left(\bar{H}_t,\bar{C}_t,e_t,p_t\right),\\
-\bar{H}_t &:= \text{pooled recent turn encodings},\\
-\bar{C}_t &:= \text{pooled causal-graph embeddings},\\
-e_t &:= \text{current emotion vector},\\
-p_t &\in \Delta^2,
+\bar{H}_t &\in \mathbb{R}^{d_H},\qquad
+\bar{C}_t \in \mathbb{R}^{d_C},\qquad
+e_t \in \mathbb{R}^{d_e},\\
+p_t &\in \Delta^2,\qquad
+\Delta^2=\left\{p\in\mathbb{R}_{\ge 0}^3:\sum_{i=1}^{3}p_i=1\right\}.
 \end{aligned}
 \]
-where \(p_t\) is the phase distribution over \(\{\text{exploration},\text{comforting},\text{action}\}\).
+The three phase components of \(p_t\) correspond to \(\{\text{exploration},\text{comforting},\text{action}\}\).
 
 The reward is additively decomposed as
 \[
 R_t = R_t^{\mathrm{cause}} + R_t^{\mathrm{emotion}} + R_t^{\mathrm{phase}},
 \]
-capturing cause-resolution progress, movement toward a target emotion, and phase progression.
+where the three terms capture cause-resolution progress, movement toward a target emotion, and phase progression.
 
 A learned transition model supports planning without full LLM rollouts:
 \[
-(\hat{e}_{t+1}, \hat{p}_{t+1}, \hat{\delta}_{t+1}) = f_\theta(s_t, a_t),
+\left(\hat{e}_{t+1},\hat{p}_{t+1},\hat{\delta}_{t+1}\right) = f_\theta(s_t,a_t),
 \]
-where \(\hat{e}_{t+1}\), \(\hat{p}_{t+1}\), and \(\hat{\delta}_{t+1}\) are predicted next-step emotion, phase logits, and resolution deltas.
+with \(\hat{e}_{t+1}\) (next-step emotion), \(\hat{p}_{t+1}\) (phase logits/distribution), and \(\hat{\delta}_{t+1}\) (resolution deltas).
 
 At inference time, **Qwen-9B** (stub in `models/backbone_qwen.py`) is used only to encode dialogue into state features and generate the final assistant reply conditioned on the selected ESC action.
 
