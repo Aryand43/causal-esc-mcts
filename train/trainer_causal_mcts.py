@@ -1,8 +1,11 @@
-"""Causal MCTS trainer: MCTS targets + flow / ranking losses."""
+"""Causal MCTS trainer: value regression on synthetic batches (stub rollout hooks)."""
 
 from __future__ import annotations
 
 from typing import Any
+
+import torch
+import torch.nn.functional as F
 
 from mcts.mcts import MCTS
 from models.policy import PolicyNetwork
@@ -11,7 +14,7 @@ from models.value import ValueNetwork
 
 
 class CausalMCTSTrainer:
-    """Joint training of :math:`\\pi,V,f_\\theta` with MCTS on :math:`f_\\theta` (stub)."""
+    """Joint optimizer over π, V, f_θ with a placeholder MSE value target."""
 
     def __init__(
         self,
@@ -27,6 +30,23 @@ class CausalMCTSTrainer:
         self.mcts = mcts
         self.config = config
 
-    def train_step(self, batch: Any) -> None:
-        """One step using MCTS rollouts and AFlow-style losses (not implemented)."""
-        pass
+        lr = config.get("learning_rate", config.get("learningrate", 1e-4))
+        self.optimizer = torch.optim.Adam(
+            list(policy.parameters())
+            + list(value.parameters())
+            + list(transition.parameters()),
+            lr=lr,
+        )
+
+    def train_step(self, batch: dict[str, torch.Tensor]) -> dict[str, float]:
+        states = batch["states"]
+        values = self.value(states)
+        target = torch.zeros_like(values)
+
+        loss = F.mse_loss(values, target)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return {"loss": float(loss.item())}
