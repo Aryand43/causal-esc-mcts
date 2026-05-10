@@ -4,13 +4,25 @@ Scaffold for latency-aware causal MCTS over an Emotional Support Conversation (E
 
 ## Method (ESC + AFlow + Causal MCTS)
 
-The dialogue is framed as an MDP. The state is
+The dialogue is framed as an MDP with state
 
 \[
-s_t = \text{concat}\bigl(\bar H_t,\,\bar C_t,\,e_t,\,p_t\bigr),
+s_t \;=\; \operatorname{concat}\!\left(\bar{H}_t,\; \bar{C}_t,\; e_t,\; p_t\right),
 \]
 
-pooling the recent turn encodings \(\bar H_t\) and cause embeddings \(\bar C_t\) from a causal graph, the current emotion vector \(e_t\), and a soft three-way phase distribution \(p_t\) (exploration / comforting / action). The reward decomposes as \(R = R_{\text{cause}} + R_{\text{emotion}} + R_{\text{phase}}\) over cause resolution progress, movement toward a target emotion, and phase progression.
+where:
+\[
+\bar{H}_t = \text{pooled recent turn encodings}, \quad
+\bar{C}_t = \text{pooled causal-graph embeddings}, \quad
+e_t = \text{current emotion vector}, \quad
+p_t \in \Delta^2 = \text{phase distribution (exploration / comforting / action)}.
+\]
+
+The reward is additively decomposed as
+\[
+R_t \;=\; R_t^{\text{cause}} + R_t^{\text{emotion}} + R_t^{\text{phase}},
+\]
+capturing cause-resolution progress, movement toward a target emotion, and phase progression.
 
 A learned transition \(f_\theta(s_t, a_t)\) predicts next emotion, phase logits, and resolution deltas so MCTS can plan without full LLM rollouts. At inference time, **Qwen-9B** (stub in `models/backbone_qwen.py`) is intended only for encoding dialogue into this state and for generating the final assistant reply conditioned on the chosen ESC action.
 
