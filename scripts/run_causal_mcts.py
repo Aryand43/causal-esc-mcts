@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 
+import torch
+
 from esc.action import ESCAction
 from esc.env import ESCEnv
 from esc.state import ESCState
@@ -12,6 +14,7 @@ from models.policy import PolicyNetwork
 from models.transition import LinearTransitionModel
 from models.value import ValueNetwork
 from train.trainer_causal_mcts import CausalMCTSTrainer
+from train.train_data import ESCStateBundleDataset
 from train.utils import load_merged_config
 
 
@@ -53,8 +56,22 @@ def main() -> None:
     batch_size = int(config.get("batch_size", config.get("batchsize", 4)))
     max_steps = int(config.get("max_steps", config.get("maxsteps", 10)))
 
+    bundles_path = os.path.join(root, "artifacts", "states", "train.pt")
+    bundle_ds: ESCStateBundleDataset | None = None
+    if os.path.isfile(bundles_path):
+        try:
+            cand = ESCStateBundleDataset(bundles_path)
+            if len(cand) > 0:
+                bundle_ds = cand
+        except OSError:
+            bundle_ds = None
+
     for step in range(max_steps):
-        states = [env.reset(initial_turns=None) for _ in range(batch_size)]
+        if bundle_ds is not None:
+            idx = torch.randint(0, len(bundle_ds), (batch_size,))
+            states = [bundle_ds.get_state(int(i)) for i in idx]
+        else:
+            states = [env.reset(initial_turns=None) for _ in range(batch_size)]
         metrics = trainer.train_step(states)
         print(f"[CausalMCTS] step={step} loss={metrics['loss']:.4f}")
 

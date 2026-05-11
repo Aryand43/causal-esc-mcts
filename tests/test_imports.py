@@ -23,3 +23,11 @@ def test_import_train() -> None:
 
 def test_import_inference() -> None:
     import inference  # noqa: F401
+
+
+def test_import_data() -> None:
+    import data  # noqa: F401
+
+
+def test_import_train_data() -> None:
+    import train.train_data  # noqa: F401

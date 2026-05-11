@@ -50,5 +50,3 @@ def load_merged_config(root: str) -> dict:
     env_cfg = load_env_config(os.path.join(root, "config", "env.yaml"))
     train_cfg = load_env_config(os.path.join(root, "config", "aflowbaseline.yaml"))
     return {**env_cfg, **train_cfg}
-    """Build optimizers for each submodule (stub)."""
-    raise NotImplementedError
