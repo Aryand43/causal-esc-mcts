@@ -1,4 +1,5 @@
 # AFlow baseline + shared MCTS training hyperparameters (flat key: value)
+# Smoke-test defaults below (maxsteps, num_simulations). Raise for paper-scale runs; see config/README.md.
 learningrate: 1e-4
 batchsize: 4
 maxsteps: 10

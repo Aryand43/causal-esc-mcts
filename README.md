@@ -1,8 +1,71 @@
 # causal-esc-mcts
 
-Latency-aware causal MCTS over an Emotional Support Conversation (ESC) MDP with an AFlow-style baseline.
+Latency-aware causal MCTS over an Emotional Support Conversation (ESC) MDP, with an AFlow-style flow baseline. This repository provides offline ESC data ingestion (Hugging Face ESConv and Cornell ESC via ConvoKit), serialized state artifacts, and training entry points that consume those artifacts without coupling search code to dataset backends.
 
-**Supports EMNLP 2026 submission:** reproducible ESC data ingestion (HF ESConv + Cornell ESC via ConvoKit), offline state serialization, and training scripts that consume artifacts without coupling search code to dataset backends.
+---
+
+## Quick Start
+
+From a fresh clone, run the pipeline in this order:
+
+```bash
+pip install -r requirements-data-full.txt
+python -m scripts.preprocessdatasets --skip-cornell
+python -m scripts.validatedatapipeline
+python -m scripts.runaflowbaseline
+python -m scripts.runcausalmcts
+pytest
+```
+
+Or use the canonical end-to-end runner:
+
+```bash
+bash scripts/run_end_to_end.sh
+```
+
+| Step | Command | What it does |
+|------|---------|--------------|
+| 1 | `pip install -r requirements-data-full.txt` | Installs PyTorch, `datasets` (ESConv), and ConvoKit (Cornell ESC). |
+| 2 | `python -m scripts.preprocessdatasets --skip-cornell` | Downloads ESConv, normalizes dialogs, and writes JSONL + serialized state tensors under `artifacts/`. Use `--skip-cornell` for a lightweight HF-only smoke run; omit it for the full ESConv + Cornell benchmark. |
+| 3 | `python -m scripts.validatedatapipeline` | Sanity-checks `artifacts/processed/conversations.jsonl` and `artifacts/states/train.pt` (shapes, bundles, state dim). |
+| 4 | `python -m scripts.runaflowbaseline` | Trains the AFlow-style policy/value networks on `artifacts/states/train.pt` (or synthetic batches if artifacts are missing). |
+| 5 | `python -m scripts.runcausalmcts` | Trains policy, value, and transition models with MCTS on serialized root states (or env-generated fallbacks if artifacts are missing). |
+| 6 | `pytest` | Runs unit tests (integration tests that download corpora are skipped by default). |
+
+**Smoke-test mode:** Default hyperparameters in `config/aflowbaseline.yaml` are intentionally small so the pipeline finishes quickly on any machine. Values such as `maxsteps: 10` and `num_simulations: 10` are for smoke testing only—not paper-scale training. For full experiments, raise these (see [config/README.md](config/README.md); suggested overrides include `maxsteps: 5000`, `num_simulations: 50`, `max_horizon: 20`).
+
+**Synthetic fallback:** If `artifacts/states/train.pt` is missing or empty, the training scripts print a warning and use random or env-generated states. That path verifies the training loop but does **not** reproduce paper experiments.
+
+---
+
+## Artifacts
+
+Preprocessing writes gitignored outputs under `artifacts/`:
+
+| Path | Description |
+|------|-------------|
+| `artifacts/processed/conversations.jsonl` | Normalized `ConversationRecord` entries (one JSON object per line). |
+| `artifacts/states/train.pt` | Training split: state bundles + stacked tensors for dataloaders. |
+| `artifacts/states/valid.pt` | Validation split. |
+| `artifacts/states/test.pt` | Test split. |
+
+Each `.pt` file contains a `"bundles"` list (for `ESCStateBundleDataset`) and optional `"state_tensors"` (for `ESCStateTensorDataset`).
+
+---
+
+## How this repository maps to the paper
+
+| Paper component | Repository location |
+|-----------------|---------------------|
+| ESC MDP (state, causal graph, actions, reward) | `esc/` |
+| MCTS planner (PUCT, tree search) | `mcts/` |
+| Policy, value, transition models | `models/` |
+| AFlow-style flow objectives | `flow/`, `train/trainer_aflow.py` |
+| Causal MCTS training | `train/trainer_causal_mcts.py`, `scripts/runcausalmcts.py` |
+| Offline data pipeline (ESConv + Cornell) | `data/`, `scripts/preprocessdatasets.py` |
+| Hyperparameters | `config/env.yaml`, `config/aflowbaseline.yaml` |
+
+The `data/` package owns corpus I/O; trainers read only serialized states under `artifacts/states/`, not live HF or ConvoKit APIs.
 
 ---
 
@@ -10,133 +73,53 @@ Latency-aware causal MCTS over an Emotional Support Conversation (ESC) MDP with 
 
 ```text
 causal-esc-mcts/
-├── data/                    # Offline dataset layer (no HF / ConvoKit at import time in callers)
-│   ├── conversation_schema.py
-│   ├── dataset_sources.py   # Lazy loaders for ESConv + Cornell
-│   ├── preprocess.py
-│   ├── build_states.py      # ConversationRecord -> ESCState
-│   ├── serialization.py
-│   └── collate.py
+├── data/                    # Offline dataset layer
 ├── esc/                     # ESCState, ESCEnv, CausalGraph, rewards
 ├── mcts/                    # MCTS planner, TreeNode, PUCT
-├── models/                  # PolicyNetwork, ValueNetwork, TransitionModel, QwenBackbone
+├── models/                  # PolicyNetwork, ValueNetwork, TransitionModel
 ├── flow/                    # AFlow-style flow objectives and losses
-├── train/
-│   ├── train_data.py        # PyTorch datasets over serialized states
-│   └── trainer_*.py
+├── train/                   # Trainers and PyTorch datasets
 ├── inference/               # Interactive CLI
 ├── scripts/
-│   ├── preprocess_datasets.py
-│   ├── validate_data_pipeline.py
-│   ├── run_aflow_baseline.py
-│   └── run_causal_mcts.py
-├── utils/                   # Seed management, episode logger
-├── artifacts/               # Gitignored outputs (create via preprocessing)
-│   ├── processed/           # e.g. conversations.jsonl
-│   └── states/              # train.pt, valid.pt, test.pt
+│   ├── preprocessdatasets.py      # canonical alias → preprocess_datasets
+│   ├── validatedatapipeline.py    # canonical alias → validate_data_pipeline
+│   ├── runaflowbaseline.py        # canonical alias → run_aflow_baseline
+│   ├── runcausalmcts.py           # canonical alias → run_causal_mcts
+│   └── run_end_to_end.sh          # full pipeline runner
+├── artifacts/               # Gitignored outputs (created by preprocessing)
 ├── config/
-├── tests/
-├── requirements.txt
-└── requirements-data-full.txt   # Adds ConvoKit / Cornell (recommended)
+└── tests/
 ```
 
----
-
-## Quick start (paper-style pipeline)
-
-```bash
-# 1. Full deps including Cornell ESC / ConvoKit (recommended default)
-pip install -r requirements-data-full.txt
-
-# 2. Offline preprocessing -> artifacts/processed/*.jsonl + artifacts/states/*.pt
-python -m scripts.preprocess_datasets
-
-# 3. Sanity-check serialized tensors when artifacts exist
-python -m scripts.validate_data_pipeline
-
-# 4. Short training smoke (uses artifacts/states/train.pt when present)
-python -m scripts.run_aflow_baseline
-python -m scripts.run_causal_mcts
-
-# 5. Unit tests (skips network-heavy integration tests by default)
-pytest
-# HF download smoke (optional):  pytest -m integration
-```
-
-`requirements-data-full.txt` includes `datasets` (HF ESConv) plus `convokit` (Cornell emotional-support). Use `requirements.txt` only if you intentionally skip Cornell (`--skip-cornell`).
-
----
-
-## Datasets
-
-| Source | Access | Role |
-|--------|--------|------|
-| **ESConv** | Hugging Face [`thu-coai/esconv`](https://huggingface.co/datasets/thu-coai/esconv) | ESC dialogs with strategy labels (`datasets` loader; lazy import in `data/dataset_sources.py`). |
-| **Cornell ESC** | ConvoKit [`emotional-support`](https://convokit.cornell.edu/documentation/support.html) | Parallel ESC benchmark (~1.3k sessions); merged into the same `ConversationRecord` schema. |
-
-Together, after normalization and filtering, the pipeline targets on the order of ~2.3k conversations (sources overlap; exact counts depend on split filters and min-turn thresholds). Training code reads only serialized bundles under `artifacts/states/` -- not HF or ConvoKit APIs.
-
----
-
-## GPU cluster deployment
-
-1. Clone this repository.
-2. Create a Python **3.10+** environment on the node.
-3. `pip install -r requirements-data-full.txt`
-4. Run `python -m scripts.preprocess_datasets` once (writes caches under ConvoKit / HF directories on shared or local disk).
-5. `python -m scripts.validate_data_pipeline` to confirm `artifacts/states/*.pt` shapes.
-6. `pytest` for regression checks (no integration markers unless you opt in).
-7. Launch `python -m scripts.run_aflow_baseline` / `python -m scripts.run_causal_mcts` with merged YAML configs in `config/`.
-
-Hyperparameters (`learning_rate`, `max_steps`, `num_simulations`, `cpuct`, `max_horizon`, loss weights, device, seed, backbone id) live in `config/env.yaml` and `config/aflowbaseline.yaml`.
+Legacy underscore module names (`scripts.preprocess_datasets`, etc.) remain available and delegate to the same implementations.
 
 ---
 
 ## Requirements
 
 - **Python 3.10+** (recommended for ConvoKit / spaCy stacks).
-- Optional: a TeX distribution for local math compilation.
-
----
-
-## Scripts overview
-
-| Script | Purpose |
-|--------|---------|
-| `scripts.preprocess_datasets` | Download/normalize ESConv + Cornell (Cornell required by default; fails with clear instructions unless `--skip-cornell`). |
-| `scripts.validate_data_pipeline` | Validates JSONL + `train.pt` when artifacts exist. |
-| `scripts.run_aflow_baseline` | AFlow-style trainer; prefers `artifacts/states/train.pt`. |
-| `scripts.run_causal_mcts` | MCTS + trainer; prefers bundled roots from artifacts. |
-| `inference.interactive_cli` | Interactive ESC session using MCTS and the Qwen stub. |
+- `requirements-data-full.txt` for ESConv + Cornell; `requirements.txt` if you intentionally skip Cornell.
 
 ---
 
 ## Subdirectory documentation
 
-Each subdirectory contains a detailed README covering its purpose, module breakdown, key classes and functions, and design decisions.
-
 | Directory | README |
 |-----------|--------|
-| `esc/` | [ESC MDP: state, causal graph, actions, reward, environment](esc/README.md) |
-| `mcts/` | [MCTS planner, PUCT, tree node, policy and value networks](mcts/README.md) |
-| `models/` | [PolicyNetwork, ValueNetwork, TransitionModel, QwenBackbone](models/README.md) |
-| `data/` | [Conversation schema, corpus loaders, preprocessing, serialization](data/README.md) |
-| `flow/` | [AFlow state flow, edge flow, consistency loss, ranking loss](flow/README.md) |
-| `train/` | [AFlowTrainer, CausalMCTSTrainer, dataset classes, config loading](train/README.md) |
-| `inference/` | [Interactive CLI session](inference/README.md) |
-| `scripts/` | [Preprocessing, validation, and training entry points](scripts/README.md) |
-| `config/` | [YAML configuration keys and recommended values](config/README.md) |
-| `tests/` | [Test suite structure and testing philosophy](tests/README.md) |
-| `utils/` | [Seed management, ExperimentConfig, EpisodeLogger](utils/README.md) |
+| `esc/` | [ESC MDP](esc/README.md) |
+| `mcts/` | [MCTS planner](mcts/README.md) |
+| `models/` | [Networks and backbone](models/README.md) |
+| `data/` | [Data pipeline](data/README.md) |
+| `flow/` | [Flow objectives](flow/README.md) |
+| `train/` | [Trainers and datasets](train/README.md) |
+| `inference/` | [Interactive CLI](inference/README.md) |
+| `scripts/` | [Entry points](scripts/README.md) |
+| `config/` | [YAML configuration](config/README.md) |
+| `tests/` | [Test suite](tests/README.md) |
+| `utils/` | [Seed and logging](utils/README.md) |
 
 ---
 
 ## CI
 
-GitHub Actions runs lint (`ruff`) and unit tests (`pytest -m "not integration"`) on Python 3.10 and 3.11 for every push and pull request to `main`. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-
----
-
-## EMNLP submission note
-
-This repository is structured so reviewers can **clone -> install -> preprocess -> validate -> train** without patching dataset paths inside `mcts/` or `models/`. The `data/` package owns corpus I/O; `train/train_data.py` exposes tensor datasets over serialized states only.
+GitHub Actions runs lint (`ruff`) and unit tests (`pytest -m "not integration"`) on Python 3.10 and 3.11. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
