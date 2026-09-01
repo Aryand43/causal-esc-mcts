@@ -1,4 +1,4 @@
-"""AFlow losses :math:`L_{\\mathrm{flow}}` and ranking :math:`L_{\\mathrm{rank}}`."""
+"""Flow-matching losses :math:`L_{\\mathrm{flow}}` and ranking :math:`L_{\\mathrm{rank}}` (in-house ablation, not AFlow)."""
 
 import torch
 import torch.nn.functional as F

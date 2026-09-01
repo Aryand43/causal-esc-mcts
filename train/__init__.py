@@ -1,21 +1,21 @@
-"""Trainer entry points for AFlow and causal MCTS."""
+"""Trainer entry points for FlowMCTS-ablation and causal MCTS."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from train.trainer_aflow import AFlowTrainer
     from train.trainer_causal_mcts import CausalMCTSTrainer
+    from train.trainer_flow_ablation import FlowAblationTrainer
 
-__all__ = ["AFlowTrainer", "CausalMCTSTrainer"]
+__all__ = ["CausalMCTSTrainer", "FlowAblationTrainer"]
 
 
 def __getattr__(name: str) -> Any:
-    if name == "AFlowTrainer":
-        from train.trainer_aflow import AFlowTrainer
+    if name == "FlowAblationTrainer":
+        from train.trainer_flow_ablation import FlowAblationTrainer
 
-        return AFlowTrainer
+        return FlowAblationTrainer
     if name == "CausalMCTSTrainer":
         from train.trainer_causal_mcts import CausalMCTSTrainer
 

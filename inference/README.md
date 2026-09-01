@@ -10,7 +10,7 @@ This package provides an interactive command-line interface for running live ESC
 
 `run_interactive_session()` starts an interactive loop that:
 
-1. Loads the merged config from `config/env.yaml` and `config/aflowbaseline.yaml`.
+1. Loads the merged config from `config/env.yaml` and `config/train_shared.yaml`.
 2. Sets the global random seed.
 3. Initializes a `LinearTransitionModel`, `ESCEnv`, `PolicyNetwork`, `ValueNetwork`, and `MCTS` planner.
 4. Initializes a `QwenBackbone` stub.

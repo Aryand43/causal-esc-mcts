@@ -1,4 +1,4 @@
-"""Causal MCTS trainer: MCTS action selection plus value + AFlow-style regularizers."""
+"""Causal MCTS trainer: MCTS action selection plus value + flow-matching regularizers."""
 
 from __future__ import annotations
 
@@ -8,7 +8,12 @@ import torch
 import torch.nn.functional as F
 
 from esc.state import ESCState
-from flow import compute_edge_flow, compute_state_flow, flow_consistency_loss, ranking_loss
+from flow import (
+    compute_edge_flow,
+    compute_state_flow,
+    flow_consistency_loss,
+    ranking_loss,
+)
 from mcts.mcts import MCTS
 from models.policy import PolicyNetwork
 from models.transition import TransitionModel

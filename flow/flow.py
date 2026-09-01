@@ -1,4 +1,4 @@
-"""AFlow-style state flow :math:`F(s)=Q_b(s)V_\\phi(s)` and edge factors."""
+"""Flow-matching state flow :math:`F(s)=Q_b(s)V_\\phi(s)` and edge factors (in-house ablation, not AFlow)."""
 
 import torch
 

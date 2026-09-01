@@ -1,0 +1,42 @@
+{
+  "n_decisions": 10,
+  "learned_transition_mcts": {
+    "num_simulations": 15,
+    "mean_seconds": 0.053791095999986285,
+    "min_seconds": 0.04624762500043289,
+    "max_seconds": 0.11597733399958088,
+    "per_decision_seconds": [
+      0.0469582919995446,
+      0.04710987499947805,
+      0.04788666700005706,
+      0.11597733399958088,
+      0.04657387499992183,
+      0.04624762500043289,
+      0.04629479200048081,
+      0.047389041999849724,
+      0.047195166000165045,
+      0.04627829200035194
+    ]
+  },
+  "llm_rollout_proxy": {
+    "top_k_candidates_per_decision": 3,
+    "total_llm_calls": 30,
+    "mean_seconds": 3.8182065333999162,
+    "min_seconds": 3.5967614589999357,
+    "max_seconds": 4.109251666999626,
+    "per_decision_seconds": [
+      4.109251666999626,
+      3.7675710829998934,
+      3.8939515830006712,
+      3.74856358299985,
+      3.982860041999629,
+      3.9710861249996015,
+      3.5967614589999357,
+      3.795975125000041,
+      3.646987292000631,
+      3.6690573749992836
+    ]
+  },
+  "speedup_llm_over_learned": 70.98212933606874,
+  "note": "llm_rollout_proxy times a bounded proxy (top-3 candidate generate_response calls at the root), not a full LLM-rollout MCTS tree search -- that would be far too slow to bound on CPU. See eval/latency_baseline.py docstring."
+}

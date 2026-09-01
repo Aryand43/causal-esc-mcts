@@ -154,7 +154,7 @@ A state bundle is a Python dict saved with `torch.save`. It contains:
 
 ### `collate.py` -- DataLoader Collate Functions
 
-`collate_state_tensors(batch)` stacks a list of flat state tensors into a `[B, state_dim]` batch tensor. This is passed as the `collate_fn` to `torch.utils.data.DataLoader` in `scripts/run_aflow_baseline.py`.
+`collate_state_tensors(batch)` stacks a list of flat state tensors into a `[B, state_dim]` batch tensor. This is passed as the `collate_fn` to `torch.utils.data.DataLoader` in `scripts/run_flow_ablation.py`.
 
 `collate_bundles(batch)` is a passthrough that returns the list of bundle dicts unchanged. It is used when the training loop needs full `ESCState` objects rather than pre-flattened tensors (as in `CausalMCTSTrainer`).
 

@@ -127,7 +127,7 @@ All three paths re-normalize via softmax so the output is always a valid probabi
 | `c_puct` | 1.0 | Exploration-exploitation tradeoff. Higher values encourage more exploration of unvisited branches. |
 | `hidden_dim` | 256 | Width of the shared trunk in policy and value networks. |
 
-These are configurable via `config/aflowbaseline.yaml` (keys `num_simulations`, `cpuct`) and override-able through the `config` dict passed to `MCTS.__init__()`.
+These are configurable via `config/train_shared.yaml` (keys `num_simulations`, `cpuct`) and override-able through the `config` dict passed to `MCTS.__init__()`.
 
 ---
 

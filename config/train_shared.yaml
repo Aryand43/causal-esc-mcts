@@ -1,0 +1,13 @@
+# FlowMCTS-ablation + shared MCTS training hyperparameters (flat key: value)
+# These are "reduced-but-real" values for an actual (non-smoke) CPU run.
+# NOT the old maxsteps=10 smoke test, and NOT an unverified paper-scale claim.
+# See results/README.md for the honest scope/sizing rationale.
+learningrate: 1e-4
+batchsize: 16
+maxsteps: 300
+flowlossweight: 1.0
+rankinglossweight: 1.0
+gammamargin: 1.0
+num_simulations: 15
+max_horizon: 12
+cpuct: 1.5

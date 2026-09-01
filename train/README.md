@@ -6,9 +6,9 @@ This package contains trainers, dataset classes, and configuration utilities. Tr
 
 ## Files
 
-### `trainer_aflow.py` -- AFlowTrainer
+### `trainer_flow_ablation.py` -- FlowAblationTrainer
 
-`AFlowTrainer` trains the policy network `pi_theta` and value network `V_phi` using the AFlow-style flow consistency and ranking losses. It does not use MCTS or the transition model; it is a purely supervised/self-supervised objective over flat state tensors.
+`FlowAblationTrainer` trains the policy network `pi_theta` and value network `V_phi` using flow-matching flow consistency and ranking losses (FlowMCTS-ablation, not a reproduction of published AFlow). It does not use MCTS or the transition model; it is a purely supervised/self-supervised objective over flat state tensors.
 
 **Constructor parameters:**
 
@@ -33,7 +33,7 @@ Takes a batch of flat state tensors `[B, state_dim]` and runs one optimization s
 
 Returns a dict with keys `"loss"`, `"flow_loss"`, `"rank_loss"`.
 
-The AFlow trainer is the ablation baseline: it shows what performance is achievable with flow-based objectives alone, without MCTS search.
+FlowAblationTrainer is the ablation baseline: it shows what performance is achievable with flow-based objectives alone, without MCTS search.
 
 ---
 
@@ -60,7 +60,7 @@ Takes a list of `ESCState` objects and runs one optimization step.
 1. **Reward collection (no grad):** set policy and value to eval mode. For each state, call `mcts.search(state)` to get the best action, then `env.step(state, action)` to get the reward. This produces a list of scalar rewards, one per state in the batch.
 2. **Forward pass (train mode):** set policy and value back to train mode. Stack states into a `[B, state_dim]` tensor and run forward passes.
 3. **Value regression loss:** `L_value = MSE(V_phi(states), R_MCTS)`. This supervises the value network with the MCTS-collected return signal.
-4. **Flow losses:** same computation as `AFlowTrainer`.
+4. **Flow losses:** same computation as `FlowAblationTrainer`.
 5. **Total loss:** `L_value + w_flow * L_flow + w_rank * L_rank`.
 6. Backward + optimizer step.
 
@@ -76,7 +76,7 @@ Both dataset classes read from `.pt` files produced by `scripts/preprocess_datas
 
 **`ESCStateTensorDataset`**
 
-Reads the `"state_tensors"` key from a `.pt` file (a pre-stacked `[N, state_dim]` tensor). If the key is absent, it falls back to reconstructing state tensors from the bundle list. This dataset is used by `AFlowTrainer`, which needs flat tensors and can use a standard `DataLoader` with batching.
+Reads the `"state_tensors"` key from a `.pt` file (a pre-stacked `[N, state_dim]` tensor). If the key is absent, it falls back to reconstructing state tensors from the bundle list. This dataset is used by `FlowAblationTrainer`, which needs flat tensors and can use a standard `DataLoader` with batching.
 
 **`ESCStateBundleDataset`**
 
@@ -90,7 +90,7 @@ This dataset is used by `CausalMCTSTrainer`, which needs full `ESCState` objects
 
 **`load_env_config(path)`** reads a flat `key: value` YAML file without importing PyYAML. It splits each non-comment line on the first colon, strips whitespace, and tries to parse the value as int, then float, then string.
 
-**`load_merged_config(root)`** loads `config/env.yaml` first, then `config/aflowbaseline.yaml`, and merges them with `aflowbaseline.yaml` keys taking precedence. The merged dict is what all training scripts and the interactive CLI consume.
+**`load_merged_config(root)`** loads `config/env.yaml` first, then `config/train_shared.yaml`, and merges them with `train_shared.yaml` keys taking precedence. The merged dict is what all training scripts and the interactive CLI consume.
 
 **`set_seed(stub)`** is an unfilled stub. Global seed setting is handled by `utils/seed.py::set_global_seed()`, which is the authoritative implementation.
 
@@ -130,9 +130,9 @@ The trainer pair enables direct ablation of the MCTS component:
 
 | Configuration | Trainer | What is being tested |
 |---|---|---|
-| AFlow only | `AFlowTrainer` | Flow objectives without search |
+| Flow-matching only | `FlowAblationTrainer` | Flow objectives without search |
 | MCTS + Flow | `CausalMCTSTrainer` | Full system |
 | MCTS only (set flow weights to 0) | `CausalMCTSTrainer` | MCTS without flow regularizer |
 | Random dynamics (use `RandomTransitionModel`) | Either | MDP without learned transition |
 
-Setting `flowlossweight: 0.0` and `rankinglossweight: 0.0` in `config/aflowbaseline.yaml` disables the AFlow terms from either trainer without code changes.
+Setting `flowlossweight: 0.0` and `rankinglossweight: 0.0` in `config/train_shared.yaml` disables the flow-matching terms from either trainer without code changes.

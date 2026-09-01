@@ -1,6 +1,6 @@
 # config -- YAML Configuration Files
 
-This directory contains the two flat YAML configuration files that control all hyperparameters for training, search, and environment setup. They are loaded and merged by `train/utils.py::load_merged_config()`, with `aflowbaseline.yaml` keys taking precedence over `env.yaml` keys.
+This directory contains the two flat YAML configuration files that control all hyperparameters for training, search, and environment setup. They are loaded and merged by `train/utils.py::load_merged_config()`, with `train_shared.yaml` keys taking precedence over `env.yaml` keys.
 
 ---
 
@@ -12,7 +12,7 @@ Controls the hardware target, reproducibility seed, and which backbone model to 
 |---|---|---|---|
 | `device` | `"cuda"` | str | Torch device for model computation. Set to `"cpu"` on machines without a GPU. |
 | `seed` | `42` | int | Global RNG seed passed to `utils.seed.set_global_seed()`. |
-| `backbone_model_name` | `"Qwen/Qwen-1.5-9B-Chat"` | str | Hugging Face model ID for the Qwen backbone. Passed to `QwenBackbone.__init__()`. |
+| `backbone_model_name` | `"Qwen/Qwen2.5-0.5B-Instruct"` | str | Hugging Face model ID for the Qwen backbone. Passed to `QwenBackbone.__init__()`. Downsized from the paper's originally stated "Qwen-9B" -- this project has no GPU access. See [results/README.md](../results/README.md). |
 
 **When to change `env.yaml`:**
 
@@ -22,21 +22,23 @@ Controls the hardware target, reproducibility seed, and which backbone model to 
 
 ---
 
-## `aflowbaseline.yaml` -- Training and Search Hyperparameters
+## `train_shared.yaml` -- Training and Search Hyperparameters
 
-Controls all training loop, MCTS search, and loss function parameters. These are shared between the AFlow baseline and the Causal MCTS trainer.
+Controls all training loop, MCTS search, and loss function parameters. These are shared between the FlowMCTS-ablation trainer and the Causal MCTS trainer.
+
+These are now "reduced-but-real" values (not the old `maxsteps: 10` smoke test, and not an unverified paper-scale claim) -- chosen to complete a genuine CPU-only run in bounded wall-clock time. See [results/README.md](../results/README.md) for the full rationale and the results this config actually produced.
 
 | Key | Default | Type | Used by | Description |
 |---|---|---|---|---|
 | `learningrate` | `1e-4` | float | Both trainers | Adam learning rate. |
-| `batchsize` | `4` | int | Both scripts | Number of states per training step. |
-| `maxsteps` | `10` | int | Both scripts | Total number of gradient steps. Increase significantly for real training runs. |
-| `flowlossweight` | `1.0` | float | Both trainers | Weight `w_flow` on the flow consistency loss term. Set to `0.0` to ablate AFlow. |
+| `batchsize` | `16` | int | Both scripts | Number of states per training step. |
+| `maxsteps` | `300` | int | Both scripts | Total number of gradient steps. |
+| `flowlossweight` | `1.0` | float | Both trainers | Weight `w_flow` on the flow consistency loss term. Set to `0.0` to ablate the flow-matching term. |
 | `rankinglossweight` | `1.0` | float | Both trainers | Weight `w_rank` on the ranking loss term. Set to `0.0` to ablate the ranking objective. |
 | `gammamargin` | `1.0` | float | Both trainers | Margin `m` in the ranking loss `max(0, m - (v_winner - v_loser))`. |
-| `num_simulations` | `10` | int | MCTS | Search budget per step. Use 50-200 for real training. |
-| `max_horizon` | `10` | int | ESCEnv | Maximum conversation turns per episode. Set to 20 for full-length episodes. |
-| `cpuct` | `1.0` | float | MCTS | PUCT exploration constant. Higher values encourage broader search. |
+| `num_simulations` | `15` | int | MCTS | Search budget per step. |
+| `max_horizon` | `12` | int | ESCEnv | Maximum conversation turns per episode. |
+| `cpuct` | `1.5` | float | MCTS | PUCT exploration constant. Higher values encourage broader search. |
 
 ---
 
@@ -50,21 +52,6 @@ The merged config dict is passed directly to trainers, MCTS, and the environment
 
 ---
 
-## Recommended values for real training runs
+## Scaling further
 
-For a full training run targeting EMNLP-quality results:
-
-```yaml
-# aflowbaseline.yaml (suggested overrides)
-learningrate: 3e-4
-batchsize: 32
-maxsteps: 5000
-flowlossweight: 1.0
-rankinglossweight: 0.5
-gammamargin: 1.0
-num_simulations: 50
-max_horizon: 20
-cpuct: 1.5
-```
-
-The default values in the repository are intentionally small (`maxsteps: 10`, `num_simulations: 10`) so that `python -m scripts.run_aflow_baseline` completes in under one minute on any machine. This makes the smoke-test loop fast without requiring config edits.
+The values above already produced the results in `results/`. For a larger run (more seeds, more steps, larger eval set), raise `maxsteps`/`num_simulations`/`batchsize` further -- but note wall-clock scales accordingly, especially the eval and latency-baseline phases which call the real Qwen backbone. See `scripts/run_full_experiment.sh` for the bounded orchestration this project actually ran, including its wall-clock caps.

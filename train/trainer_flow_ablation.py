@@ -1,4 +1,10 @@
-"""AFlow baseline trainer from synthetic state batches."""
+"""FlowMCTS-ablation trainer from synthetic state batches.
+
+NOTE: this is an in-house GFlowNet-style flow-matching ablation (trains the
+policy/value networks with flow-consistency + ranking losses, no MCTS search
+and no transition model) — it is NOT a reproduction of the published AFlow
+system (Zou et al.). See flow/README.md.
+"""
 
 from __future__ import annotations
 
@@ -6,12 +12,17 @@ from typing import Any
 
 import torch
 
-from flow import compute_edge_flow, compute_state_flow, flow_consistency_loss, ranking_loss
+from flow import (
+    compute_edge_flow,
+    compute_state_flow,
+    flow_consistency_loss,
+    ranking_loss,
+)
 from models.policy import PolicyNetwork
 from models.value import ValueNetwork
 
 
-class AFlowTrainer:
+class FlowAblationTrainer:
     """Trains π_θ and V_φ with flow consistency and a lightweight ranking term on values."""
 
     def __init__(

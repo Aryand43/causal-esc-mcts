@@ -5,16 +5,17 @@ from __future__ import annotations
 import os
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 def set_seed(seed: int) -> None:
-    """Reproducibility for ESC / AFlow experiments (stub)."""
+    """Deprecated stub — use ``utils.seed.set_global_seed`` instead."""
     _ = seed
-    pass
 
 
 def _parse_scalar(val: str) -> int | float | str:
+    if len(val) >= 2 and val[0] == val[-1] and val[0] in ("'", '"'):
+        val = val[1:-1]
     try:
         return int(val)
     except ValueError:
@@ -46,7 +47,7 @@ def load_env_config(path: str) -> dict:
 
 
 def load_merged_config(root: str) -> dict:
-    """Load ``env.yaml`` then ``aflowbaseline.yaml`` (training keys override env keys)."""
+    """Load ``env.yaml`` then ``train_shared.yaml`` (training keys override env keys)."""
     env_cfg = load_env_config(os.path.join(root, "config", "env.yaml"))
-    train_cfg = load_env_config(os.path.join(root, "config", "aflowbaseline.yaml"))
+    train_cfg = load_env_config(os.path.join(root, "config", "train_shared.yaml"))
     return {**env_cfg, **train_cfg}

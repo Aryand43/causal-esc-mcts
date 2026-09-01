@@ -1,6 +1,6 @@
-# flow -- AFlow-Style Flow Objectives
+# flow -- Flow-Matching Objectives (FlowMCTS-ablation)
 
-This package implements the flow-based training objectives borrowed from the AFlow framework. It provides two computations -- state flow and edge flow -- and two loss functions: the flow consistency loss and a ranking loss on value estimates. These are used by both trainers (`AFlowTrainer` and `CausalMCTSTrainer`).
+**Not a reproduction of the published AFlow system (Zou et al.).** This package implements an in-house flow-matching regularizer *inspired by* AFlow/GFlowNet ideas -- state flow and edge flow computations, plus a flow-consistency loss and a ranking loss on value estimates. These are used by both trainers (`FlowAblationTrainer` and `CausalMCTSTrainer`); `FlowAblationTrainer` alone (no MCTS, no transition model) is the "FlowMCTS-ablation" baseline referenced elsewhere in this repo. See [results/README.md](../results/README.md) for why this rename happened.
 
 ---
 
@@ -70,7 +70,7 @@ The `margin` is configurable via `config["gamma_margin"]` (default 1.0).
 
 ## How the losses connect to training
 
-In `AFlowTrainer.train_step()`:
+In `FlowAblationTrainer.train_step()`:
 
 ```python
 F_s     = compute_state_flow(Q_b=policy_probs, V=values.expand(-1, num_actions))
@@ -89,7 +89,7 @@ L_value = MSE(V_theta(s), R_MCTS)
 loss    = L_value + w_flow * L_flow + w_rank * L_rank
 ```
 
-The weights `w_flow` and `w_rank` are loaded from `config["flow_loss_weight"]` and `config["ranking_loss_weight"]` (both default 1.0 in `config/aflowbaseline.yaml`).
+The weights `w_flow` and `w_rank` are loaded from `config["flow_loss_weight"]` and `config["ranking_loss_weight"]` (both default 1.0 in `config/train_shared.yaml`).
 
 ---
 
@@ -105,7 +105,7 @@ from flow import compute_edge_flow, compute_state_flow, flow_consistency_loss, r
 
 ## Ablation
 
-To ablate the AFlow objectives and train with only the MCTS value regression loss, set both weights to zero in `config/aflowbaseline.yaml`:
+To ablate the flow-matching objectives and train with only the MCTS value regression loss, set both weights to zero in `config/train_shared.yaml`:
 
 ```yaml
 flowlossweight: 0.0

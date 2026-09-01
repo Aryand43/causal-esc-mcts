@@ -1,6 +1,6 @@
 # models -- Neural Network Components
 
-This package contains all neural network modules for the ESC pipeline: the policy network, value network, transition model, and the Qwen backbone stub. All modules are implemented in PyTorch and follow a common design principle: they consume flat state vectors or structured `ESCState` / `ESCAction` inputs and produce tensors that feed into the MDP or the loss computation.
+This package contains all neural network modules for the ESC pipeline: the policy network, value network, transition model, and the Qwen backbone. All modules are implemented in PyTorch and follow a common design principle: they consume flat state vectors or structured `ESCState` / `ESCAction` inputs and produce tensors that feed into the MDP or the loss computation.
 
 ---
 
@@ -113,9 +113,9 @@ Parameters:
 
 ### `backbone_qwen.py` -- QwenBackbone
 
-`QwenBackbone` is the integration stub for the Qwen-1.5-9B-Chat backbone model. It is the sole place in the codebase that must be modified when the real Hugging Face weights are wired in.
+`QwenBackbone` wraps a real, local `Qwen/Qwen2.5-0.5B-Instruct` model (downsized from the paper's originally stated "Qwen-9B" -- this project has no GPU; see [results/README.md](../results/README.md)). It was previously a stub that returned all-zero embeddings and a hardcoded reply string; it now does real forward passes and real greedy generation, with the backbone weights frozen throughout (only the policy/value/transition MLPs downstream are trained).
 
-All other code depends only on the interface: `encode_dialogue(turns)` and `generate_response(prompt)`. The rest of the ESC pipeline stays unchanged when the real backbone replaces the stub.
+All other code depends only on the interface: `encode_dialogue(turns)` and `generate_response(prompt)`.
 
 **`encode_dialogue(turns)`** returns a dict with the structure expected by `ESCState.from_dialogue(encoder=...)`:
 
@@ -129,14 +129,9 @@ All other code depends only on the interface: `encode_dialogue(turns)` and `gene
 }
 ```
 
-In the stub, all tensors are zeros. A real implementation would:
-1. Tokenize the turns using the Qwen tokenizer.
-2. Run a forward pass through the model.
-3. Extract the last `K_HISTORY_WINDOW` hidden states for the history window, zero-padding from the left when fewer turns exist.
-4. Run a lightweight emotion classifier head on the pooled representation to produce `emotion`.
-5. Run a cause extraction head or use an NER/IE module to produce `causes`.
+Because Qwen2.5-0.5B-Instruct's hidden size (896) doesn't match the fixed `D_H=768`/`D_C=384`/`D_E=128`, real pooled Qwen hidden states are passed through frozen, seeded random linear projections (JL-style) to bridge the dimensions. Cause spans are heuristically taken from the seeker's turns (ESConv has no ground-truth cause-span labels). Both are documented limitations, not hidden ones -- see the module docstring and `results/README.md`.
 
-**`generate_response(prompt)`** returns a stub string. A real implementation would call `model.generate()` on a tokenized prompt that includes the conversation history and the MCTS-selected strategy as a conditioning signal.
+**`generate_response(prompt)`** does real greedy decoding (`max_new_tokens=48`) via the model's chat template.
 
 **`encoder_adapter(backbone)`** in `data/build_states.py` wraps a `QwenBackbone`-like object into the `EncoderFn` callable type expected by `ESCState.from_dialogue()`. This adapter is the bridge between the data layer and the model layer.
 
@@ -166,4 +161,4 @@ The default hidden width is 256. Reasons for this choice:
 | ValueNetwork | ~459K |
 | LinearTransitionModel | ~596K |
 
-These are small relative to the Qwen-9B backbone (9B parameters), reflecting the design intent: the backbone does the heavy lifting of encoding dialogue into the state representation, and the MDP-level networks are lightweight heads that learn the planning logic.
+These are small relative to the Qwen2.5-0.5B-Instruct backbone (~500M parameters), reflecting the design intent: the backbone does the heavy lifting of encoding dialogue into the state representation, and the MDP-level networks are lightweight heads that learn the planning logic.

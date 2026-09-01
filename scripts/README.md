@@ -18,8 +18,8 @@ python -m scripts.preprocess_datasets
 # 3. Verify the artifacts are correct
 python -m scripts.validate_data_pipeline
 
-# 4a. Run AFlow baseline training
-python -m scripts.run_aflow_baseline
+# 4a. Run FlowMCTS-ablation training
+python -m scripts.run_flow_ablation
 
 # 4b. Run full Causal MCTS training
 python -m scripts.run_causal_mcts
@@ -82,15 +82,15 @@ Prints a summary of counts and shapes. Exits with a non-zero code if any check f
 
 ---
 
-## `run_aflow_baseline.py`
+## `run_flow_ablation.py`
 
-**Purpose:** Train the policy and value networks using the AFlow-style flow consistency and ranking objectives, without MCTS.
+**Purpose:** Train the policy and value networks using flow-matching flow consistency and ranking objectives (not MCTS) -- FlowMCTS-ablation, not a reproduction of published AFlow.
 
 **What it does:**
 
-1. Loads merged config from `config/env.yaml` + `config/aflowbaseline.yaml`.
+1. Loads merged config from `config/env.yaml` + `config/train_shared.yaml`.
 2. Instantiates `PolicyNetwork` and `ValueNetwork`.
-3. Instantiates `AFlowTrainer`.
+3. Instantiates `FlowAblationTrainer`.
 4. Attempts to load `artifacts/states/train.pt` as an `ESCStateTensorDataset`. If the file does not exist, falls back to synthetic random batches of shape `[batch_size, state_dim]`.
 5. Runs `max_steps` training steps, printing the loss at each step.
 
@@ -111,9 +111,9 @@ Prints a summary of counts and shapes. Exits with a non-zero code if any check f
 3. Attempts to load `artifacts/states/train.pt` as an `ESCStateBundleDataset`. If absent, falls back to synthetic states from `env.reset()`.
 4. At each training step, randomly samples a batch of states from the bundle dataset (or generates them), calls `trainer.train_step(states)`, and prints the loss breakdown.
 
-**Fallback behaviour:** identical to the AFlow script -- env-generated zero states are used when artifacts are missing.
+**Fallback behaviour:** identical to the FlowMCTS-ablation script -- env-generated zero states are used when artifacts are missing.
 
-**Config keys used:** all AFlow keys plus `num_simulations`, `cpuct`, `max_horizon`.
+**Config keys used:** all FlowMCTS-ablation keys plus `num_simulations`, `cpuct`, `max_horizon`.
 
 ---
 

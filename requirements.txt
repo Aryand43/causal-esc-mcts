@@ -7,3 +7,9 @@ pandas>=2.0
 pyarrow>=14.0
 tqdm>=4.66
 pytest>=7.4
+
+# Evaluation metrics (BLEU / ROUGE / BERTScore / significance testing)
+sacrebleu>=2.4
+rouge-score>=0.1.2
+bert-score>=0.3.13
+scipy>=1.11

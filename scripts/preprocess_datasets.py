@@ -11,8 +11,6 @@ from collections import defaultdict
 
 import torch
 
-from models.backbone_qwen import QwenBackbone
-
 from data import (
     build_esc_state_from_record,
     convokit_corpus_to_records,
@@ -25,6 +23,9 @@ from data import (
     validate_record,
     write_jsonl,
 )
+from models.backbone_qwen import QwenBackbone
+from train.utils import load_merged_config
+from utils.seed import set_global_seed
 
 
 def _assign_cornell_split(conversation_id: str, seed: int) -> str:
@@ -100,6 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     states_dir = os.path.join(root, "artifacts", "states")
     jsonl_path = os.path.join(processed_dir, "conversations.jsonl")
 
+    set_global_seed(args.seed)
     rng = random.Random(args.seed)
     records_out: list = []
 
@@ -111,13 +113,15 @@ def main(argv: list[str] | None = None) -> int:
             print(_convokit_failure_banner(e), file=sys.stderr)
             return 1
 
-    esconv_seen = 0
     esconv_cap = args.max_esconv
 
     if not args.skip_esconv:
+        # Cap is applied PER HF split (not globally): a global running total
+        # would exhaust entirely within "train" (the largest split) and never
+        # touch "validation"/"test", leaving downstream eval with no test
+        # instances. Each split independently gets up to `esconv_cap` records.
         for split_name in ("train", "validation", "test"):
-            if esconv_cap is not None and esconv_seen >= esconv_cap:
-                break
+            split_seen = 0
             mapped = _map_esconv_split(split_name)
             try:
                 gen = iter_esconv_records(split_name, max_samples=None)
@@ -128,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 break
             for rec in gen:
-                if esconv_cap is not None and esconv_seen >= esconv_cap:
+                if esconv_cap is not None and split_seen >= esconv_cap:
                     break
                 pr = preprocess_record(
                     rec,
@@ -140,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
                     continue
                 pr.metadata["split"] = mapped
                 records_out.append(pr)
-                esconv_seen += 1
+                split_seen += 1
 
     if cornell_corpus is not None:
         for rec in convokit_corpus_to_records(
@@ -161,7 +165,11 @@ def main(argv: list[str] | None = None) -> int:
     write_jsonl(jsonl_path, iter(records_out))
     print(f"[preprocess] wrote {len(records_out)} records → {jsonl_path}")
 
-    backbone = QwenBackbone("stub-qwen-esc")
+    backbone_model_name = load_merged_config(root).get(
+        "backbone_model_name", "Qwen/Qwen2.5-0.5B-Instruct"
+    )
+    backbone = QwenBackbone(backbone_model_name, seed=args.seed)
+    backbone.load()
     encoder = encoder_adapter(backbone)
 
     by_split: dict[str, list] = defaultdict(list)

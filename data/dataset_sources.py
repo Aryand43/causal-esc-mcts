@@ -46,7 +46,19 @@ def _infer_roles_alternating(
 
 
 def esconv_row_to_record(row: dict[str, Any], *, split: str, index: int) -> ConversationRecord:
-    """Map one HF ``thu-coai/esconv`` row to :class:`ConversationRecord`."""
+    """Map one HF ``thu-coai/esconv`` row to :class:`ConversationRecord`.
+
+    The ``thu-coai/esconv`` dataset stores each row as a single JSON-encoded
+    string under a ``"text"`` key (not a flat dict with a top-level
+    ``"dialog"`` key) -- this decodes that wrapper when present.
+    """
+    if "text" in row and isinstance(row.get("text"), str):
+        import json
+
+        try:
+            row = {**row, **json.loads(row["text"])}
+        except (json.JSONDecodeError, TypeError):
+            pass
     dialog = row.get("dialog") or []
     turns: list[str] = []
     raw_roles: list[SeekerSupporter | None] = []

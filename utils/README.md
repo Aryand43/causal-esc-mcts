@@ -57,7 +57,7 @@ A dataclass that bundles all hyperparameters that affect experimental results in
 ```python
 from utils.seed import ExperimentConfig
 
-cfg = ExperimentConfig(seed=42, num_simulations=50, notes="ablation: no AFlow")
+cfg = ExperimentConfig(seed=42, num_simulations=50, notes="ablation: no flow-matching term")
 cfg.apply()   # sets all seeds
 cfg.log()     # prints to stdout
 cfg.save("experiments/run_001_config.json")
